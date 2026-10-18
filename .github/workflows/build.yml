@@ -1,0 +1,74 @@
+name: build
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+
+env:
+  # Name of the Tau (Python edition) repository under the same account or organisation.
+  TAU_REPO: Tau
+
+jobs:
+  linux:
+    name: tests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/${{ env.TAU_REPO }}
+          path: tau-repo
+      - name: Build tau++
+        run: make
+      - name: Compare tau++ with tau.py
+        run: python3 tests/run_tests.py build/tau++ tau-repo
+
+  windows:
+    name: build (Windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/${{ env.TAU_REPO }}
+          path: tau-repo
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: mingw-w64-x86_64-gcc make zip
+      - name: Build tau++.exe and tauIDE.exe
+        run: CXX=g++ sh ./build_cross.sh
+      - name: Smoke test tau++.exe
+        run: |
+          out=$(./build/tau++.exe tau-repo/hello.tau | tr -d '\r')
+          echo "$out"
+          test "$out" = "Hello World!"
+      - name: Package
+        run: |
+          cd build
+          zip -r ../tauIDE-windows.zip tauIDE.exe tau++.exe scripts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tauIDE-windows
+          path: tauIDE-windows.zip
+
+  release:
+    name: release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: tauIDE-windows
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: tauIDE-windows.zip
