@@ -1,0 +1,7 @@
+# demo
+Define tau 0x01 "01001000 0110"
+Text Ta 2 "hi\n"
+Set r1 -5
+loop:
+Jne r1 'x' loop # trailing
+foo r16 0xZZ
