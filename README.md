@@ -92,3 +92,12 @@ make
 
 `tests/run_tests.py` runs every example and tool from the Tau repository through both implementations and checks
 that standard output, error messages and exit codes are identical. It also runs the two IDE scripts on sample text.
+
+```
+git clone <the Tau repository> ../Tau
+make test                     # uses ../Tau, or pass TAU_REPO=path
+```
+
+GitHub Actions (`.github/workflows/build.yml`) runs the tests on Linux, builds `tauIDE.exe` and `tau++.exe` on
+Windows, and attaches them to a release when you push a tag such as `v0.2.0`. The workflow expects the Tau
+repository to be named `Tau` under the same account; change `TAU_REPO` at the top of the file if it is not.

@@ -22,6 +22,11 @@ for what, path in (("tau++ executable", CPP), ("tau.py", TAU_PY)):
     if not os.path.exists(path):
         sys.exit(f"cannot find {what} at {path}\n(build tau++ first, and check out the Tau repository next to this one)")
 
+for name in ("hello.tau", "examples"):
+    if not os.path.exists(os.path.join(TAU_REPO, name)):
+        sys.exit(f"the Tau repository at {TAU_REPO} has no {name}; its files must be at the repository root.\n"
+                 f"Found there: {sorted(os.listdir(TAU_REPO))}")
+
 failures = 0
 
 

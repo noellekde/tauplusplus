@@ -29,7 +29,7 @@ struct Host {
 enum class Op {
     Define, Text, Set, Add, Sub, Mul, Div, Mod, Load, Store, Len,
     Jump, Jeq, Jne, Jlt, Jgt, Jle, Jge, Call, Ret, Halt,
-    Newline, Print, PrintChar, PrintInt, Host
+    Newline, Print, PrintChar, PrintInt, Host, Blob
 };
 
 struct Instr {

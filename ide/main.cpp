@@ -429,6 +429,7 @@ void createControls(HWND hwnd) {
     g_status = CreateWindowExW(0, STATUSCLASSNAMEW, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd, (HMENU)1003,
                                g_inst, nullptr);
     SendMessageW(g_edit, WM_SETFONT, (WPARAM)g_font, TRUE);
+    SendMessageW(g_out, EM_SETLIMITTEXT, 0, 0);
     SendMessageW(g_out, WM_SETFONT, (WPARAM)g_font, TRUE);
     SendMessageW(g_edit, EM_SETBKGNDCOLOR, 0, BG);
     SendMessageW(g_edit, EM_SETEVENTMASK, 0, ENM_CHANGE | ENM_SELCHANGE);

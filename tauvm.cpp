@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <unordered_map>
 
+#include "tables.inc"
+
 namespace tau {
 
 static const int SIZES[3] = {1, 50, 100};
@@ -250,6 +252,15 @@ Program Program::parse(const std::string& source) {
             labels[name] = (int)p.code.size();
             continue;
         }
+        if (low == "god" && toks.size() == 3 && toks[1].kind == 0 && toks[2].kind == 0 &&
+            lower(toks[1].s) == "is" && lower(toks[2].s) == "coming") {
+            Instr ins;
+            ins.op = Op::Blob;
+            ins.line = lineno;
+            p.isStatic = false;
+            p.code.push_back(ins);
+            continue;
+        }
         auto it = specs().find(low);
         if (it == specs().end()) failAt(lineno, "unknown statement '" + word + "'");
         std::string spec = it->second.args;
@@ -429,6 +440,10 @@ void Vm::run() {
                 break;
             case Op::PrintInt:
                 out += std::to_string(val(in.args[0]));
+                break;
+            case Op::Blob:
+                for (const char* const* b = BLOB; *b; ++b) out += *b;
+                out += '\n';
                 break;
             case Op::Host:
                 if (!host_) fail("no host function '" + in.text + "'");
