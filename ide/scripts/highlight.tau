@@ -1,0 +1,256 @@
+# highlight.tau - the syntax highlighter of tauIDE, written in Tau.
+#
+# The C++ side runs this whenever the text changes. It reads the document with
+#   Host TextLen rD / Host CharAt rD idx
+# and colours ranges with
+#   Host Paint start length colour
+# Colours: 1 keyword, 2 comment, 3 string/char, 4 number, 5 label, 6 register.
+#
+# Registers
+#   r0 position   r1 text length   r2 current char   r4 1 = first token of the line
+#   r5 token start   r6 token length   r8 keyword table   r9 result of iskw/isreg/isnum
+
+# keyword tables: words separated by zero bytes, ended by an extra zero byte
+Text tau 0x100 "define\0text\0set\0add\0sub\0mul\0div\0mod\0load\0store\0len\0jump\0jeq\0jne\0jlt\0jgt\0"
+Text tau 0x101 "jle\0jge\0call\0ret\0halt\0print\0printchar\0printint\0newline\0host\0"
+Text tau 0x102 "t\0ta\0tau\0"
+
+Host TextLen r1
+Set r0 0
+Set r4 1
+
+main:
+Jge r0 r1 done
+Host CharAt r2 r0
+Jeq r2 10 newline
+Jeq r2 13 newline
+Jeq r2 32 skip
+Jeq r2 9 skip
+Jeq r2 35 comment
+Jeq r2 34 string
+Jeq r2 39 chrlit
+Jump word
+
+skip:
+Add r0 1
+Jump main
+
+newline:
+Add r0 1
+Set r4 1
+Jump main
+
+# ---- comment: from '#' to the end of the line
+comment:
+Set r5 r0
+cm_loop:
+Add r0 1
+Jge r0 r1 cm_end
+Host CharAt r2 r0
+Jeq r2 10 cm_end
+Jne r2 13 cm_loop
+cm_end:
+Set r6 r0
+Sub r6 r5
+Host Paint r5 r6 2
+Jump main
+
+# ---- "string" (backslash escapes, stops at the end of the line)
+string:
+Set r5 r0
+st_loop:
+Add r0 1
+Jge r0 r1 st_end
+Host CharAt r2 r0
+Jeq r2 10 st_end
+Jeq r2 13 st_end
+Jeq r2 92 st_esc
+Jne r2 34 st_loop
+Add r0 1
+Jump st_end
+st_esc:
+Add r0 1
+Host CharAt r2 r0
+Jeq r2 10 st_end
+Jeq r2 13 st_end
+Jump st_loop
+st_end:
+Set r6 r0
+Sub r6 r5
+Host Paint r5 r6 3
+Set r4 0
+Jump main
+
+# ---- 'c' or '\n' character literal
+chrlit:
+Set r5 r0
+Set r6 3
+Set r7 r0
+Add r7 1
+Host CharAt r2 r7
+Jeq r2 10 cl_one
+Jeq r2 13 cl_one
+Jne r2 92 cl_paint
+Set r6 4
+Jump cl_paint
+cl_one:
+Set r6 1
+cl_paint:
+Add r0 r6
+Jle r0 r1 cl_ok
+Set r0 r1
+Set r6 r0
+Sub r6 r5
+cl_ok:
+Host Paint r5 r6 3
+Set r4 0
+Jump main
+
+# ---- any other token: ends at whitespace
+word:
+Set r5 r0
+wd_loop:
+Add r0 1
+Jge r0 r1 wd_end
+Host CharAt r2 r0
+Jeq r2 32 wd_end
+Jeq r2 9 wd_end
+Jeq r2 10 wd_end
+Jeq r2 13 wd_end
+Jump wd_loop
+wd_end:
+Set r6 r0
+Sub r6 r5
+Jne r4 1 not_first
+Set r4 0
+# first token on the line: a label ("name:") or a statement keyword
+Set r7 r0
+Sub r7 1
+Host CharAt r2 r7
+Jne r2 58 first_kw
+Host Paint r5 r6 5
+Jump main
+first_kw:
+Set r8 0x100
+Call iskw
+Jeq r9 1 paint_kw
+Set r8 0x101
+Call iskw
+Jeq r9 1 paint_kw
+Set r8 0x102
+Call iskw
+Jeq r9 1 paint_kw
+Jump main
+not_first:
+Set r8 0x102
+Call iskw
+Jeq r9 1 paint_kw
+Call isreg
+Jeq r9 1 paint_reg
+Call isnum
+Jeq r9 1 paint_num
+Jump main
+paint_kw:
+Host Paint r5 r6 1
+Jump main
+paint_reg:
+Host Paint r5 r6 6
+Jump main
+paint_num:
+Host Paint r5 r6 4
+Jump main
+
+done:
+Halt
+
+# ---- iskw: is the token (r5 start, r6 length) in table r8, ignoring case? -> r9
+iskw:
+Set r10 0
+kw_next:
+Load r11 r8 r10
+Jeq r11 0 kw_no
+Set r12 0
+kw_cmp:
+Set r13 r10
+Add r13 r12
+Load r11 r8 r13
+Jge r12 r6 kw_tend
+Jeq r11 0 kw_skip
+Set r14 r5
+Add r14 r12
+Host CharAt r15 r14
+Jlt r15 65 kw_lc
+Jgt r15 90 kw_lc
+Add r15 32
+kw_lc:
+Jne r11 r15 kw_skip
+Add r12 1
+Jump kw_cmp
+kw_tend:
+Jeq r11 0 kw_yes
+kw_skip:
+Load r11 r8 r10
+Jeq r11 0 kw_adv
+Add r10 1
+Jump kw_skip
+kw_adv:
+Add r10 1
+Jump kw_next
+kw_yes:
+Set r9 1
+Ret
+kw_no:
+Set r9 0
+Ret
+
+# ---- isreg: r0..r15 -> r9
+isreg:
+Set r9 0
+Host CharAt r15 r5
+Jeq r15 114 rg_r
+Jne r15 82 rg_ret
+rg_r:
+Jlt r6 2 rg_ret
+Jgt r6 3 rg_ret
+Set r14 r5
+Add r14 1
+Host CharAt r15 r14
+Jlt r15 48 rg_ret
+Jgt r15 57 rg_ret
+Sub r15 48
+Jeq r6 3 rg_two
+Set r9 1
+Ret
+rg_two:
+Set r13 r15
+Mul r13 10
+Add r14 1
+Host CharAt r15 r14
+Jlt r15 48 rg_ret
+Jgt r15 57 rg_ret
+Sub r15 48
+Add r13 r15
+Jgt r13 15 rg_ret
+Set r9 1
+rg_ret:
+Ret
+
+# ---- isnum: starts with a digit, or '-' and a digit -> r9
+isnum:
+Set r9 0
+Host CharAt r15 r5
+Jlt r15 48 nm_neg
+Jgt r15 57 nm_neg
+Set r9 1
+Ret
+nm_neg:
+Jne r15 45 nm_ret
+Jlt r6 2 nm_ret
+Set r14 r5
+Add r14 1
+Host CharAt r15 r14
+Jlt r15 48 nm_ret
+Jgt r15 57 nm_ret
+Set r9 1
+nm_ret:
+Ret

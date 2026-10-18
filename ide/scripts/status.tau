@@ -1,0 +1,23 @@
+# status.tau - builds the status bar text of tauIDE. Everything it prints
+# (Print / PrintInt / PrintChar) becomes the status bar text.
+
+Text tau 1 "Ln "
+Text tau 2 ", Col "
+Text tau 3 "   |   "
+Text tau 4 " lines, "
+Text tau 5 " chars"
+
+Host CaretLine r0
+Host CaretCol r1
+Host LineCount r2
+Host TextLen r3
+
+Print 1
+PrintInt r0
+Print 2
+PrintInt r1
+Print 3
+PrintInt r2
+Print 4
+PrintInt r3
+Print 5
